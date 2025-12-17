@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marie's Sweets & Treats - Order Online</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #8B4789 0%, #A855A7 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #8B4789 0%, #6B2E6A 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 { font-size: 28px; margin-bottom: 10px; }
+        .header p { opacity: 0.95; font-size: 16px; }
+        
+        .chat-container {
+            height: 500px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+        
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .message.bot { justify-content: flex-start; }
+        .message.user { justify-content: flex-end; }
+        
+        .message-content {
+            max-width: 75%;
+            padding: 15px 20px;
+            border-radius: 18px;
+            line-height: 1.5;
+        }
+        
+        .bot .message-content {
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .user .message-content {
+            background: #8B4789;
+            color: white;
+        }
+        
+        .input-section {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+        
+        .input-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #eee;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+        }
+        
+        input:focus { border-color: #8B4789; }
+        
+        button {
+            background: linear-gradient(135deg, #8B4789 0%, #6B2E6A 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        button:hover { transform: translateY(-2px); }
+        
+        .quick-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .quick-option {
+            background: white;
+            border: 2px solid #8B4789;
+            color: #8B4789;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .quick-option:hover {
+            background: #8B4789;
+            color: white;
+        }
+        
+        .summary-box {
+            background: #F5E6F5;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #8B4789;
+        }
+        
+        .summary-box h4 {
+            color: #6B2E6A;
+            margin-bottom: 10px;
+        }
+        
+        .summary-box p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧁 Marie's Sweets & Treats</h1>
+            <p>Let's create something delicious for your special day!</p>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="message bot">
+                <div class="message-content">
+                    Hi! Welcome to Marie's Sweets & Treats! 🧁 I'm here to help you order something delicious for your special day. Everything is made fresh to order with all-natural ingredients. Let's get started - what's your name?
+                </div>
+            </div>
+        </div>
+
+        <div class="input-section">
+            <div class="input-container">
+                <input type="text" id="userInput" placeholder="Type your message..." autocomplete="off">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+            <div class="quick-options" id="quickOptions"></div>
+        </div>
+    </div>
+
+    <script>
+        let state = {
+            step: 0,
+            data: {
+                name: '', product_type: '', event_type: '', event_date: '', servings: '',
+                budget: '', design_ideas: '', flavors: '', dietary: [], contact_method: '', phone: '', email: ''
+            }
+        };
+
+        const questions = [
+            { field: 'name', question: "Hi! Welcome to Marie's Sweets & Treats! 🧁 What's your name?", type: 'text' },
+            { 
+                field: 'product_type', 
+                question: (d) => `Nice to meet you, ${d.name}! What would you like to order?`,
+                options: ['Custom Cake', 'Smash Cake', 'Cupcakes', 'Cookies', 'Pies', 'Cake Jars/Cups', 'Chocolate Treats', 'Party Pack ($175)', 'Mix of Items']
+            },
+            {
+                field: 'event_type',
+                question: "What type of celebration are we creating for?",
+                options: ['Birthday', 'Wedding', 'Baby Shower/Gender Reveal', 'Anniversary', 'Graduation', 'Family Reunion', 'Other']
+            },
+            {
+                field: 'event_date',
+                question: "When is your event? (Select a date)",
+                type: 'date'
+            },
+            {
+                field: 'servings',
+                question: (d) => {
+                    if (d.product_type.includes('Cookie')) return "How many cookies?";
+                    if (d.product_type.includes('Cupcake')) return "How many cupcakes?";
+                    return "How many people will you be serving?";
+                },
+                options: (d) => {
+                    if (d.product_type.includes('Cookie')) return ['1/2 dozen - $20', '1 dozen - $35', '2 dozen - $65', '3+ dozen'];
+                    if (d.product_type.includes('Cupcake')) return ['1/2 dozen - $20', '1 dozen - $45', '2 dozen - $60', '3+ dozen'];
+                    if (d.product_type.includes('Party Pack')) return ['20-30 guests', '30-40 guests', '40+ guests'];
+                    return ['10-20 guests', '20-40 guests', '40-60 guests', '60-100 guests', '100+ guests'];
+                }
+            },
+            {
+                field: 'budget',
+                question: "What's your budget range?",
+                options: (d) => {
+                    if (d.product_type.includes('Cookie') || d.product_type.includes('Pie')) return ['Under $25', '$25-$50', '$50-$75', '$75+'];
+                    if (d.product_type.includes('Cupcake')) return ['Under $30', '$30-$60', '$60-$100', '$100+'];
+                    if (d.product_type.includes('Party Pack')) return ['$175 Standard', '$175-$250', '$250+'];
+                    return ['Under $50', '$50-$100', '$100-$175', '$175-$300', '$300+'];
+                }
+            },
+            {
+                field: 'flavors',
+                question: (d) => {
+                    if (d.product_type.includes('Cookie')) return "What cookie flavors?";
+                    if (d.product_type.includes('Cupcake')) return "What cupcake flavors?";
+                    if (d.product_type.includes('Pie')) return "Which pie flavor?";
+                    return "What cake flavors?";
+                },
+                options: (d) => {
+                    if (d.product_type.includes('Cookie')) return ['Chocolate Chip', 'Triple Chocolate Chip', 'Butterscotch', 'Oatmeal', 'Peanut Butter', 'Mix'];
+                    if (d.product_type.includes('Cupcake')) return ['Strawberry Shortcake', 'Lemon', 'Red Velvet', 'Chocolate', 'S\'mores', 'Mix'];
+                    if (d.product_type.includes('Pie')) return ['Apple', 'Sweet Potato', 'Peach Cobbler', 'Custom'];
+                    return ['Chocolate', 'Vanilla', 'Strawberry', 'Red Velvet', 'Lemon', 'Butter Pecan', 'Surprise Me'];
+                }
+            },
+            {
+                field: 'design_ideas',
+                question: (d) => {
+                    if (d.product_type.includes('Cookie')) return "Any special packaging preferences?";
+                    return "Tell me about your vision! Any design ideas, colors, or themes?";
+                },
+                type: 'text'
+            },
+            {
+                field: 'dietary',
+                question: "Any dietary requirements?",
+                options: ['None', 'Gluten-Free', 'Vegan', 'Nut-Free', 'Dairy-Free']
+            },
+            {
+                field: 'contact_method',
+                question: "How would you prefer I follow up with you?",
+                options: ['Text Message', 'Phone Call', 'Email']
+            },
+            {
+                field: 'contact_info',
+                question: (d) => d.contact_method === 'Email' ? "What's your email address?" : "What's your phone number?",
+                type: 'text'
+            }
+        ];
+
+        function addMessage(content, isUser = false, isHTML = false) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            if (isHTML) contentDiv.innerHTML = content;
+            else contentDiv.textContent = content;
+            messageDiv.appendChild(contentDiv);
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function showOptions(opts) {
+            const container = document.getElementById('quickOptions');
+            container.innerHTML = '';
+            if (opts && opts.length > 0) {
+                opts.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = 'quick-option';
+                    btn.textContent = opt;
+                    btn.onclick = () => selectOption(opt);
+                    container.appendChild(btn);
+                });
+            }
+        }
+
+        function selectOption(option) {
+            document.getElementById('userInput').value = option;
+            sendMessage();
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            addMessage(message, true);
+            input.value = '';
+            input.type = 'text';
+            showOptions([]);
+            
+            setTimeout(() => processMessage(message), 800);
+        }
+
+        function processMessage(message) {
+            const q = questions[state.step];
+            
+            // Store data
+            if (q.field === 'dietary') {
+                if (!state.data.dietary) state.data.dietary = [];
+                if (message !== 'None' && !state.data.dietary.includes(message)) {
+                    state.data.dietary.push(message);
+                }
+            } else if (q.field === 'contact_info') {
+                if (state.data.contact_method === 'Email') state.data.email = message;
+                else state.data.phone = message;
+            } else {
+                state.data[q.field] = message;
+            }
+            
+            // Move to next question
+            state.step++;
+            
+            if (state.step < questions.length) {
+                askNextQuestion();
+            } else {
+                finishConversation();
+            }
+        }
+
+        function askNextQuestion() {
+            const q = questions[state.step];
+            const question = typeof q.question === 'function' ? q.question(state.data) : q.question;
+            
+            setTimeout(() => {
+                addMessage(question);
+                
+                const input = document.getElementById('userInput');
+                if (q.type === 'date') {
+                    input.type = 'date';
+                    input.min = new Date().toISOString().split('T')[0];
+                } else {
+                    input.type = 'text';
+                }
+                
+                if (q.options) {
+                    const opts = typeof q.options === 'function' ? q.options(state.data) : q.options;
+                    showOptions(opts);
+                }
+                
+                input.focus();
+            }, 500);
+        }
+
+        function finishConversation() {
+            const d = state.data;
+            const budgetValue = parseInt(d.budget?.replace(/[^0-9]/g, '') || '0');
+            let priority = budgetValue >= 100 ? 'HOT' : budgetValue < 30 ? 'FOLLOW-UP' : 'MEDIUM';
+            
+            const summary = `
+                <div class="summary-box">
+                    <h4>🎉 Perfect! Here's what we're creating:</h4>
+                    <p><strong>Name:</strong> ${d.name}</p>
+                    <p><strong>Product:</strong> ${d.product_type}</p>
+                    <p><strong>Event:</strong> ${d.event_type} on ${d.event_date}</p>
+                    <p><strong>Servings:</strong> ${d.servings}</p>
+                    <p><strong>Budget:</strong> ${d.budget}</p>
+                    <p><strong>Flavors:</strong> ${d.flavors}</p>
+                    <p><strong>Design:</strong> ${d.design_ideas}</p>
+                    ${d.dietary.length > 0 ? `<p><strong>Dietary:</strong> ${d.dietary.join(', ')}</p>` : ''}
+                    <p><strong>Priority:</strong> ${priority}</p>
+                </div>
+            `;
+            
+            setTimeout(() => {
+                addMessage(summary, false, true);
+                setTimeout(() => {
+                    addMessage(`Thanks so much, ${d.name}! I've captured all your details. Marie will reach out via ${d.contact_method.toLowerCase()} within 24 hours with design ideas and pricing. Can't wait to create something special for you! 💜`);
+                    
+                    // Download CSV
+                    const csv = [
+                        ['Field', 'Value'],
+                        ['Timestamp', new Date().toISOString()],
+                        ['Name', d.name],
+                        ['Product', d.product_type],
+                        ['Event Type', d.event_type],
+                        ['Event Date', d.event_date],
+                        ['Servings', d.servings],
+                        ['Budget', d.budget],
+                        ['Flavors', d.flavors],
+                        ['Design Ideas', d.design_ideas],
+                        ['Dietary', d.dietary.join('; ') || 'None'],
+                        ['Contact Method', d.contact_method],
+                        ['Phone', d.phone || 'N/A'],
+                        ['Email', d.email || 'N/A'],
+                        ['Priority', priority]
+                    ].map(row => row.join(',')).join('\n');
+                    
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `lead_${d.name.replace(/\s/g, '_')}_${Date.now()}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }, 1500);
+            }, 500);
+        }
+
+        // Initialize
+        document.getElementById('userInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>
